@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { socket } from "../socket";
 
 function WriteMessage() {
-    const [messages, setMessages] = useState([]);
+    const [messages, setMessages] = useState<{ to: string, from: string, message: string }[]>([]);
     const [message, setMessage] = useState("");
     const [targetUser, setTargetUser] = useState("");
 
@@ -41,6 +41,7 @@ function WriteMessage() {
     const sendMessage = () => {
         socket.emit("private_message", {
             to: targetUser,
+            from: userName,
             message,
         });
         setMessage("");
@@ -71,12 +72,24 @@ function WriteMessage() {
                 </button>
             </div>
 
-            <h3>Messages:</h3>
-            {messages.map((msg, i) => (
-                <p key={i}>
-                    <strong>{msg.from}:</strong> {msg.message}
-                </p>
-            ))}
+            <div>
+                <h3>Received Messages:</h3>
+                {messages.filter((filteredMsg) => filteredMsg.to == userName).map((msg, i) => (
+                    <p key={i}>
+                        <strong>{msg.from}:</strong> {msg.message}
+                    </p>
+                ))}
+            </div>
+
+            <div>
+                <h3>Sent Messages:</h3>
+                {messages.filter((filteredMsg) => filteredMsg.from == userName).map((msg, i) => (
+                    <p key={i}>
+                        <strong>{msg.to}:</strong> {msg.message}
+                    </p>
+                ))}
+            </div>
+
         </div>
     );
 }
