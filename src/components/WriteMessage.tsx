@@ -8,8 +8,17 @@ function WriteMessage() {
     const [chatMembers, setChatMembers] = useState<string[]>([]);
     const [selectedMember, setSelectedMember] = useState<string | null>(null);
     const [showDropdown, setShowDropdown] = useState(false);
+    const [users, setUsers] = useState<string[]>([]);
+    const [selectedRecipient, setSelectedRecipient] = useState<string | null>(null);
 
-    const userName = prompt("Enter your username") || "anonymous";
+    // useEffect(() => {console.log('users:', users)}, [chatMembers]);
+    let userName = "";
+    while (!userName) {
+        const input = prompt("Enter your username");
+        if (input) {
+            userName = input;
+        }
+    }
 
     useEffect(() => {
         socket.connect();
@@ -23,10 +32,15 @@ function WriteMessage() {
             // Add new member if not already present and not self
             const otherUser = data.to !== userName ? data.to : data.from;
             setChatMembers((prev) => {
-                if (!prev.includes(otherUser)) return [...prev, otherUser];
+                if (!prev.includes(otherUser) && otherUser !== userName) return [...prev, otherUser];
                 return prev;
             });
         });
+
+        socket.on("user_connected", (data) => {
+            console.log('data:', data)
+            setUsers(data.users);
+        })
 
         return () => {
             socket.off("private_message");
@@ -46,6 +60,8 @@ function WriteMessage() {
         setMessages((prev) => [...prev, { to: targetUser, from: userName, message }]);
         setMessage("");
         setShowDropdown(false);
+        setTargetUser(""); // Clear targetUser after sending message
+        setSelectedMember(null); // Clear selectedMember after sending message
     };
 
     const messagesForSelected = selectedMember
@@ -54,6 +70,68 @@ function WriteMessage() {
 
     return (
         <div className="p-6">
+            {/* Input Fields — always visible */}
+                    <div className="p-4 border-t flex gap-2 items-center">
+                        {/* Recipient dropdown */}
+                        <div className="relative">
+                            <input
+                                value={selectedMember || targetUser}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    setSelectedMember(null);
+                                    setTargetUser(value);
+                                    setShowDropdown(true);
+                                }}
+                                placeholder="Select recipient"
+                                className="p-2 border rounded-lg border-black text-black w-52"
+                                onFocus={() => setShowDropdown(true)}
+                            />
+                            {showDropdown && (
+                                <ul className="absolute z-10 top-full left-0 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-40 overflow-y-auto shadow-md">
+                                    {users
+                                        .filter(
+                                            (member) =>
+                                                targetUser &&
+                                                member.toLowerCase().includes(targetUser.toLowerCase())
+                                        )
+                                        .map((member) => (
+                                            <li
+                                                key={member}
+                                                onClick={() => {
+                                                    setTargetUser(member);
+                                                    setSelectedRecipient(member);
+                                                    setShowDropdown(false);
+                                                }}
+                                                className="p-2 cursor-pointer hover:bg-gray-200 text-black"
+                                            >
+                                                {member}
+                                            </li>
+                                        ))}
+                                    {users.filter((member) =>
+                                        member.toLowerCase().includes(targetUser.toLowerCase())
+                                    ).length === 0 && (
+                                        <li className="p-2 text-gray-400">No user found</li>
+                                    )}
+                                </ul>
+                            )}
+                        </div>
+
+                        {/* Message input */}
+                        <input
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                            placeholder="Type your message..."
+                            className="flex-1 p-2 border rounded-lg border-black text-black"
+                        />
+                        <button
+                            disabled = {!selectedRecipient || !message.trim()}
+                            onClick={sendMessage}
+                            className="bg-blue-500 text-white px-4 py-2 rounded-lg"
+                        >
+                            Send
+                        </button>
+                    </div>
+
             <h2 className="text-4xl font-bold mb-4">Username: {userName}</h2>
 
             <div className="flex border rounded-lg overflow-hidden h-[500px] shadow-md w-full max-w-4xl">
@@ -117,62 +195,7 @@ function WriteMessage() {
                         )}
                     </div>
 
-                    {/* Input Fields — always visible */}
-                    <div className="p-4 border-t flex gap-2 items-center">
-                        {/* Recipient dropdown */}
-                        <div className="relative">
-                            <input
-                                value={targetUser}
-                                onChange={(e) => {
-                                    setTargetUser(e.target.value);
-                                    setShowDropdown(true);
-                                }}
-                                placeholder="Select recipient"
-                                className="p-2 border rounded-lg border-black text-black w-52"
-                                onFocus={() => setShowDropdown(true)}
-                            />
-                            {showDropdown && targetUser && (
-                                <ul className="absolute z-10 top-full left-0 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-40 overflow-y-auto shadow-md">
-                                    {chatMembers
-                                        .filter((member) =>
-                                            member.toLowerCase().includes(targetUser.toLowerCase())
-                                        )
-                                        .map((member) => (
-                                            <li
-                                                key={member}
-                                                onClick={() => {
-                                                    setTargetUser(member);
-                                                    setSelectedMember(member);
-                                                    setShowDropdown(false);
-                                                }}
-                                                className="p-2 cursor-pointer hover:bg-gray-200"
-                                            >
-                                                {member}
-                                            </li>
-                                        ))}
-                                    {chatMembers.filter((member) =>
-                                        member.toLowerCase().includes(targetUser.toLowerCase())
-                                    ).length === 0 && (
-                                        <li className="p-2 text-gray-400">No user found</li>
-                                    )}
-                                </ul>
-                            )}
-                        </div>
-
-                        {/* Message input */}
-                        <input
-                            value={message}
-                            onChange={(e) => setMessage(e.target.value)}
-                            placeholder="Type your message..."
-                            className="flex-1 p-2 border rounded-lg border-black text-black"
-                        />
-                        <button
-                            onClick={sendMessage}
-                            className="bg-blue-500 text-white px-4 py-2 rounded-lg"
-                        >
-                            Send
-                        </button>
-                    </div>
+                    
                 </div>
             </div>
         </div>
