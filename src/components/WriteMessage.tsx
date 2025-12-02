@@ -104,6 +104,7 @@ function WriteMessage() {
             .filter((m) => (m.from === selectedUser && m.to === userName) || (m.from === userName && m.to === selectedUser))
             .sort((a, b) => (a.ts ?? 0) - (b.ts ?? 0));
     }, [messages, selectedUser, userName]);
+    console.log('conversation:', conversation);
 
     // send from top-level inputs (keeps backward compatibility)
     const sendMainMessage = () => {
@@ -123,6 +124,7 @@ function WriteMessage() {
         if (!selectedUser || !chatInput) return;
         const msg: ChatMsg = { to: selectedUser, from: userName, message: chatInput, ts: Date.now() };
         socket.emit("private_message", msg);
+        socket.emit("is_typing", { to: selectedUser, from: userName, typing: true, ts: Date.now() });
         // setMessages((prev) => {
         //     const next = [...prev, msg];
         //     persistChats(next);
@@ -172,7 +174,8 @@ function WriteMessage() {
                         <ul>
                             {chatMembers.map((member) => {
                                 // show unread count or last message preview if wanted; minimal here
-                                const lastMsg = [...messages].reverse().find((m) => m.from === member || m.to === member);
+                                console.log('messages:', messages)
+                                const lastMsg = [...messages].reverse()[0];
                                 return (
                                     <li
                                         key={member}
@@ -234,10 +237,10 @@ function WriteMessage() {
                                                 <div
                                                     className={`p-2 rounded-lg max-w-[70%] ${isMine ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-900"}`}
                                                 >
-                                                    <div style={{ fontSize: 13, opacity: 0.9 }}>
-                                                        {!isMine && <strong>{m.from}</strong>}
-                                                    </div>
-                                                    <div style={{ marginTop: 4 }}>{m.message}</div>
+                                                    {/*<div style={{ fontSize: 13, opacity: 0.9 }}>*/}
+                                                    {/*    {!isMine ? <strong>{m.from}</strong> : <strong>You</strong>}*/}
+                                                    {/*</div>*/}
+                                                    <div style={{ marginTop: 4 }}>{!isMine ? <strong>{m.from}</strong> : <strong>You</strong>}: {m.message}</div>
                                                     <div style={{ fontSize: 11, marginTop: 6, opacity: 0.7, textAlign: "right" }}>
                                                         {new Date(m.ts ?? 0).toLocaleString()}
                                                     </div>
