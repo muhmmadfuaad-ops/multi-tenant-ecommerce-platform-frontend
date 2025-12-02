@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { socket } from "../socket";
 
 type ChatMsg = { to: string; from: string; message: string; ts?: number };
+type TypingEvent = { to: string; from: string; isTyping: boolean; ts?: number };
 
 function safeParseChats(key = "chats"): ChatMsg[] {
     try {
@@ -60,6 +61,10 @@ function WriteMessage() {
             });
         };
 
+        const onTyping = (data: TypingEvent) => {
+            console.log(`a typing event received from ${data.from} to ${data.to}`);
+        };
+
         const onConnectError = (err: any) => {
             console.error("Socket error:", err?.message ?? err);
         };
@@ -67,6 +72,7 @@ function WriteMessage() {
         socket.on("connect", onConnect);
         socket.on("private_message", onPrivateMessage);
         socket.on("connect_error", onConnectError);
+        socket.on("is_typing", onTyping)
 
         return () => {
             socket.off("connect", onConnect);
@@ -124,7 +130,7 @@ function WriteMessage() {
         if (!selectedUser || !chatInput) return;
         const msg: ChatMsg = { to: selectedUser, from: userName, message: chatInput, ts: Date.now() };
         socket.emit("private_message", msg);
-        socket.emit("is_typing", { to: selectedUser, from: userName, typing: true, ts: Date.now() });
+
         // setMessages((prev) => {
         //     const next = [...prev, msg];
         //     persistChats(next);
@@ -261,6 +267,7 @@ function WriteMessage() {
                                     onKeyDown={(e) => {
                                         if (e.key === "Enter") sendChatMessage();
                                     }}
+                                    onFocus={()=> socket.emit("is_typing", { to: selectedUser, from: userName, typing: true, ts: Date.now() })}
                                 />
                                 <button onClick={sendChatMessage} className="px-4 py-2 bg-blue-500 text-white rounded">
                                     Send
