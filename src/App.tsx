@@ -3,7 +3,7 @@ import WriteMessage from "./components/WriteMessage.tsx";
 import Login from "./components/Login.tsx"
 
 function App() {
-  const isLoggedIn = false; // Replace with your auth logic
+  // const isLoggedIn = false; // Replace with your auth logic
   
   return (
     <Router>
@@ -14,9 +14,11 @@ function App() {
         {/* Chat route */}
         <Route
           path="/chat"
-          element={
-            isLoggedIn ? <WriteMessage /> : <Navigate to="/login" replace />
-          }
+          // element={
+          //   isLoggedIn ? <WriteMessage /> : <Navigate to="/login" replace />
+          // }
+
+            element={ <WriteMessage />}
         />
 
         {/* Redirect unknown routes */}
