@@ -25,7 +25,8 @@ function persistChats(messages: ChatMsg[], key = "chats") {
 }
 
 function WriteMessage() {
-    // main top-level inputs (left as requested)
+    const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("userName"));
+    const [userName, setUserName] = useState(localStorage.getItem("userName") || null);
     const [mainRecipient, setMainRecipient] = useState("");
     const [mainMessage, setMainMessage] = useState("");
 
@@ -38,8 +39,8 @@ function WriteMessage() {
     messagesRef.current = messages;
 
     // current logged-in user
-    const cachedUser = localStorage.getItem("userName");
-    const userName = cachedUser && cachedUser.trim().length ? cachedUser : "anonymous";
+    // const cachedUser = localStorage.getItem("userName");
+    // const userName = cachedUser && cachedUser.trim().length ? cachedUser : "anonymous";
 
     // UI: selected chat partner shown on right
     const [selectedUser, setSelectedUser] = useState<string | null>(null);
@@ -50,10 +51,10 @@ function WriteMessage() {
     const userId = localStorage.getItem("userId") || null;
     // Ensure socket connect once and handle incoming messages
     useEffect(() => {
-        console.log('cachedUser:', cachedUser)
-        console.log('typeof cachedUser:', typeof cachedUser)
+        // console.log('cachedUser:', cachedUser)
+        // console.log('typeof cachedUser:', typeof cachedUser)
 
-        if (!socket.connected && cachedUser) {
+        if (!socket.connected && userName) {
             console.log('socket.connect() triggered')
             socket.connect();
         }
@@ -65,6 +66,12 @@ function WriteMessage() {
             }
             console.log('Emitting registerUser with userName:', userName);
             socket.emit("registerUser", userName);
+        };
+
+        const onDisconnect = () => {
+            localStorage.clear();
+            setIsLoggedIn(false);
+            setUserName(null);
         };
 
         const onPrivateMessage = (data: ChatMsg) => {
@@ -92,6 +99,13 @@ function WriteMessage() {
             setUsers(prev => Array.from(new Set([...prev, data.userData])));
         }
 
+        // when new user disconnects
+        const onUserDisconnected = (data: {userData: string}) => {
+            console.log('data in onUserConnected:', data)
+            console.log('users in onUserConnected:', users)
+            setUsers(prev => prev.filter(u => u !== data.userData));
+        }
+
         // receive all users upon registration
         const onRegistrationSuccessful = (data: {usersData: [string]}) => {
             console.log('data in onRegistrationSuccessful:', data)
@@ -101,10 +115,12 @@ function WriteMessage() {
         }
 
         socket.on("connect", onConnect);
+        socket.on("disconnect", onDisconnect)
         socket.on("private_message", onPrivateMessage);
         socket.on("connect_error", onConnectError);
         socket.on("typing_event", onTyping)
-        socket.on("userConnected", onUserConnected)
+        socket.on("userConnected", onUserConnected);
+        socket.on("userDisconnected", onUserDisconnected);
         socket.on("registrationSuccessful", onRegistrationSuccessful)
         return () => {
             socket.off("connect", onConnect);
@@ -172,7 +188,7 @@ function WriteMessage() {
     };
 
     const handleLogOut = () => {
-        socket.emit("userDisconnected", userId)
+        socket.disconnect();
     }
 
     // quick helper: open chat with user (also focus input in UI if you implement refs)
@@ -202,9 +218,11 @@ function WriteMessage() {
             <div className="mb-4">
                 <div>
                     <h2 className="text-2xl font-semibold">Username: {userName}</h2>
-                    <button onClick={handleLogOut} className="px-4 py-2 bg-blue-500 text-white rounded">
-                        Log Out
-                    </button>
+                    {isLoggedIn &&
+                        <button onClick={handleLogOut} className="px-4 py-2 bg-blue-500 text-white rounded">
+                            Log Out
+                        </button>
+                    }
 
                 </div>
                 <div className="flex gap-2 mt-2">
