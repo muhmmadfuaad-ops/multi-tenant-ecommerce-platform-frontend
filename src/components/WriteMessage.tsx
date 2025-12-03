@@ -29,26 +29,42 @@ function WriteMessage() {
     const [mainRecipient, setMainRecipient] = useState("");
     const [mainMessage, setMainMessage] = useState("");
 
+    // state for dropdown visibility
+    const [showDropdown, setShowDropdown] = useState(false);
+
     // all messages store
     const [messages, setMessages] = useState<ChatMsg[]>(() => safeParseChats());
     const messagesRef = useRef(messages);
     messagesRef.current = messages;
 
     // current logged-in user
-    const rawUser = localStorage.getItem("userName");
-    const userName = rawUser && rawUser.trim().length ? rawUser : "anonymous";
+    const cachedUser = localStorage.getItem("userName");
+    const userName = cachedUser && cachedUser.trim().length ? cachedUser : "anonymous";
 
     // UI: selected chat partner shown on right
     const [selectedUser, setSelectedUser] = useState<string | null>(null);
     const [chatInput, setChatInput] = useState(""); // per-chat input
 
+    // all users
+    const [users, setUsers] = useState<string[]>(localStorage.getItem("users") ? JSON.parse(localStorage.getItem("users") as string) : []);
+    const userId = localStorage.getItem("userId") || null;
     // Ensure socket connect once and handle incoming messages
     useEffect(() => {
-        if (!socket.connected) socket.connect();
+        console.log('cachedUser:', cachedUser)
+        console.log('typeof cachedUser:', typeof cachedUser)
+
+        if (!socket.connected && cachedUser) {
+            console.log('socket.connect() triggered')
+            socket.connect();
+        }
 
         const onConnect = () => {
             console.log(`${userName} connected with socket id: ${socket.id}`);
-            socket.emit("register", userName);
+            if (socket.id) {
+                localStorage.setItem("userId", socket.id);
+            }
+            console.log('Emitting registerUser with userName:', userName);
+            socket.emit("registerUser", userName);
         };
 
         const onPrivateMessage = (data: ChatMsg) => {
@@ -69,11 +85,27 @@ function WriteMessage() {
             console.error("Socket error:", err?.message ?? err);
         };
 
+        // when new user connects
+        const onUserConnected = (data: {userData: string}) => {
+            console.log('data in onUserConnected:', data)
+            console.log('users in onUserConnected:', users)
+            setUsers(prev => Array.from(new Set([...prev, data.userData])));
+        }
+
+        // receive all users upon registration
+        const onRegistrationSuccessful = (data: {usersData: [string]}) => {
+            console.log('data in onRegistrationSuccessful:', data)
+            console.log('users in onRegistrationSuccessful:', users)
+
+            setUsers(prev => Array.from(new Set([...prev, ...data.usersData])));
+        }
+
         socket.on("connect", onConnect);
         socket.on("private_message", onPrivateMessage);
         socket.on("connect_error", onConnectError);
         socket.on("typing_event", onTyping)
-
+        socket.on("userConnected", onUserConnected)
+        socket.on("registrationSuccessful", onRegistrationSuccessful)
         return () => {
             socket.off("connect", onConnect);
             socket.off("private_message", onPrivateMessage);
@@ -110,7 +142,7 @@ function WriteMessage() {
             .filter((m) => (m.from === selectedUser && m.to === userName) || (m.from === userName && m.to === selectedUser))
             .sort((a, b) => (a.ts ?? 0) - (b.ts ?? 0));
     }, [messages, selectedUser, userName]);
-    console.log('conversation:', conversation);
+    // console.log('conversation:', conversation);
 
     // send from top-level inputs (keeps backward compatibility)
     const sendMainMessage = () => {
@@ -139,23 +171,66 @@ function WriteMessage() {
         setChatInput("");
     };
 
+    const handleLogOut = () => {
+        socket.emit("userDisconnected", userId)
+    }
+
     // quick helper: open chat with user (also focus input in UI if you implement refs)
     const openChat = (name: string) => {
         setSelectedUser(name);
     };
 
+    // Filter users based on input
+    const filteredUsers = users.filter((u) =>
+        u.toLowerCase().startsWith(mainRecipient.toLowerCase())
+    );
+
+    const handleSelect = (user: string) => {
+        setMainRecipient(user);
+        setShowDropdown(false);
+    };
+
+    useEffect(() => {
+        console.log('typeof users:', typeof users)
+        console.log('users in useEffect:', users)
+        localStorage.setItem("users", JSON.stringify(users));
+    }, [users]);
+
     return (
         <div className="p-4" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
             {/* Top-level inputs remain (user asked to keep them) */}
             <div className="mb-4">
-                <h2 className="text-2xl font-semibold">Username: {userName}</h2>
+                <div>
+                    <h2 className="text-2xl font-semibold">Username: {userName}</h2>
+                    <button onClick={handleLogOut} className="px-4 py-2 bg-blue-500 text-white rounded">
+                        Log Out
+                    </button>
+
+                </div>
                 <div className="flex gap-2 mt-2">
                     <input
                         value={mainRecipient}
-                        onChange={(e) => setMainRecipient(e.target.value)}
+                        onChange={(e) => {
+                            setMainRecipient(e.target.value);
+                            setShowDropdown(true); // open dropdown when typing
+                        }}
+                        // onFocus={() => setShowDropdown(true)}
                         placeholder="Recipient username (top-level)"
                         className="px-3 py-2 border rounded flex-1"
                     />
+                    {showDropdown && mainRecipient && filteredUsers.length > 0 && (
+                        <ul className="absolute left-0 right-0 bg-white border rounded mt-1 shadow z-10">
+                            {filteredUsers.map((user) => (
+                                <li
+                                    key={user}
+                                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                                    onClick={() => handleSelect(user)}
+                                >
+                                    {user}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                     <input
                         value={mainMessage}
                         onChange={(e) => setMainMessage(e.target.value)}
