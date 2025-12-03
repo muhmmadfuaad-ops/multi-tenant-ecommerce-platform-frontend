@@ -72,7 +72,7 @@ function WriteMessage() {
         socket.on("connect", onConnect);
         socket.on("private_message", onPrivateMessage);
         socket.on("connect_error", onConnectError);
-        socket.on("is_typing", onTyping)
+        socket.on("typing_event", onTyping)
 
         return () => {
             socket.off("connect", onConnect);
@@ -267,7 +267,7 @@ function WriteMessage() {
                                     onKeyDown={(e) => {
                                         if (e.key === "Enter") sendChatMessage();
                                     }}
-                                    onFocus={()=> socket.emit("is_typing", { to: selectedUser, from: userName, typing: true, ts: Date.now() })}
+                                    onFocus={()=> socket.emit("typing_event", { to: selectedUser, from: userName, isTyping: true, ts: Date.now() })}
                                 />
                                 <button onClick={sendChatMessage} className="px-4 py-2 bg-blue-500 text-white rounded">
                                     Send
