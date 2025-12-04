@@ -241,11 +241,28 @@ function WriteMessage() {
             {/* Top-level inputs remain (user asked to keep them) */}
             <div className="mb-4">
                 <div>
-                    <h2 className="text-2xl font-semibold">Username: {userName}</h2>
+
+                    {/*<ul>*/}
+                    {/*    {users.map((u) =>*/}
+                    {/*        {*/}
+                    {/*            return (<li>(u)</li>)*/}
+                    {/*        }*/}
+                    {/*    }*/}
+                    {/*</ul>*/}
+
                     {isLoggedIn &&
-                        <button onClick={handleLogOut} className="px-4 py-2 bg-blue-500 text-white rounded">
-                            Log Out
-                        </button>
+                        <div>
+                            <h2 className="text-2xl font-semibold">Username: {userName}</h2>
+                            <ul>
+                                <h3>All Users</h3>
+                                {users.map((u, index) => (
+                                    <li key={index}>{u}</li>
+                                ))}
+                            </ul>
+                            <button onClick={handleLogOut} className="px-4 py-2 bg-blue-500 text-white rounded">
+                                Log Out
+                            </button>
+                        </div>
                     }
 
                 </div>
@@ -306,7 +323,7 @@ function WriteMessage() {
                                         className={`p-2 rounded cursor-pointer mb-1 ${selectedUser === member ? "bg-blue-100" : "hover:bg-gray-100"}`}
                                     >
                                         <div className="flex justify-between">
-                                            <strong>{member}</strong>
+                                            <strong>{member}</strong>{typingMembers.has(member) && <span className="text-red-900">typing...</span>}
                                             <span className="text-xs text-gray-500">{lastMsg ? new Date(lastMsg.ts ?? 0).toLocaleTimeString() : ""}</span>
                                         </div>
                                         <div className="text-sm text-gray-600 truncate">
