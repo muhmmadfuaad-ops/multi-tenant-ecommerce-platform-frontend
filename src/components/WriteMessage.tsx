@@ -28,12 +28,14 @@ function persistChats(messages: ChatMsg[], key = "chats") {
     }
 }
 
+
 function WriteMessage() {
-    const [isLoggedIn, setIsLoggedIn] = useState(!!getUserName);
-    const [userName, setUserName] = useState(getUserName || null);
+    const [isLoggedIn, setIsLoggedIn] = useState(!!getUserName());
+    // const [userName, setUserName] = useState(getUserName());
+    const [userName, setUserName] = useState<string | null>(() => getUserName());
     const [mainRecipient, setMainRecipient] = useState("");
     const [mainMessage, setMainMessage] = useState("");
-
+    const [typingMembers, setTypingMembers] = useState<Set<string>>(new Set());
     // state for dropdown visibility
     const [showDropdown, setShowDropdown] = useState(false);
 
@@ -51,7 +53,7 @@ function WriteMessage() {
     // Ensure socket connect once and handle incoming messages
     useEffect(() => {
         console.log('socket.connected:', socket.connected);
-
+        console.log('userName:', userName);
         if (!socket.connected && userName) {
             console.log('socket.connect() triggered')
             socket.connect();
@@ -67,9 +69,10 @@ function WriteMessage() {
         };
 
         const onDisconnect = () => {
-            setIsLoggedIn(false);
-            setUserName(null);
+            // setIsLoggedIn(false);
+            // setUserName(null);
         };
+
 
         const onPrivateMessage = (data: ChatMsg) => {
             // ensure ts for sorting; keep immutability
@@ -81,8 +84,19 @@ function WriteMessage() {
             });
         };
 
-        const onTyping = (data: TypingEvent) => {
-            console.log(`a typing event received from ${data.from} to ${data.to}`);
+        const onTypingEvent = (data: TypingEvent) => {
+            if (data.isTyping) console.log(`${data.from} started typing`);
+            if (!data.isTyping) console.log(`${data.from} stopped typing`);
+
+            setTypingMembers((prev) => {
+                const next = new Set(prev);
+                if (data.isTyping) {
+                    next.add(data.from);
+                } else {
+                    next.delete(data.from);
+                }
+                return next;
+            })
         };
 
         const onConnectError = (err: any) => {
@@ -115,7 +129,7 @@ function WriteMessage() {
         socket.on("disconnect", onDisconnect)
         socket.on("private_message", onPrivateMessage);
         socket.on("connect_error", onConnectError);
-        socket.on("typing_event", onTyping)
+        socket.on("typingEvent", onTypingEvent)
         socket.on("userConnected", onUserConnected);
         socket.on("userDisconnected", onUserDisconnected);
         socket.on("registrationSuccessful", onRegistrationSuccessful)
@@ -125,7 +139,10 @@ function WriteMessage() {
             socket.off("connect_error", onConnectError);
             // do not disconnect if you rely on socket elsewhere in app,
             // but original code disconnected — keep behavior but safe:
-            if (socket.connected) socket.disconnect();
+            if (socket.connected) {
+                console.log('socket.disconnect() triggered on unmount')
+                socket.disconnect();
+            }
         };
         // intentionally run only once on mount/unmount
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -191,6 +208,7 @@ function WriteMessage() {
     }
 
     const handleLogOut = () => {
+        console.log('socket.disconnect() triggered in handleLogOut')
         socket.disconnect();
         clearAll();
         clearLocalData();
@@ -204,7 +222,7 @@ function WriteMessage() {
 
     // Filter users based on input
     const filteredUsers = users.filter((u) =>
-        u.toLowerCase().startsWith(mainRecipient.toLowerCase())
+        u?.toLowerCase().startsWith(mainRecipient.toLowerCase())
     );
 
     const handleSelect = (user: string) => {
@@ -272,7 +290,7 @@ function WriteMessage() {
             <div className="flex h-[60vh] border rounded overflow-hidden">
                 {/* Left: chat members */}
                 <aside className="w-64 border-r p-2 bg-gray-50 overflow-auto">
-                    <h3 className="font-medium mb-2">Chats</h3>
+                    <h3 className="font-medium mb-2 text-black">Chats</h3>
                     {chatMembers.length === 0 ? (
                         <p className="text-sm text-gray-500">No chats yet. Send a message to start.</p>
                     ) : (
@@ -337,14 +355,12 @@ function WriteMessage() {
                                 ) : (
                                     conversation.map((m, i) => {
                                         const isMine = m.from === userName;
+
                                         return (
                                             <div key={m.ts ?? i} style={{ display: "flex", justifyContent: isMine ? "flex-end" : "flex-start" }}>
                                                 <div
                                                     className={`p-2 rounded-lg max-w-[70%] ${isMine ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-900"}`}
                                                 >
-                                                    {/*<div style={{ fontSize: 13, opacity: 0.9 }}>*/}
-                                                    {/*    {!isMine ? <strong>{m.from}</strong> : <strong>You</strong>}*/}
-                                                    {/*</div>*/}
                                                     <div style={{ marginTop: 4 }}>{!isMine ? <strong>{m.from}</strong> : <strong>You</strong>}: {m.message}</div>
                                                     <div style={{ fontSize: 11, marginTop: 6, opacity: 0.7, textAlign: "right" }}>
                                                         {new Date(m.ts ?? 0).toLocaleString()}
@@ -354,6 +370,8 @@ function WriteMessage() {
                                         );
                                     })
                                 )}
+                                {typingMembers.has(selectedUser) && <span className="font-bold text-black">Typing...</span>}
+
                             </div>
 
                             {/* per-chat input */}
@@ -366,7 +384,8 @@ function WriteMessage() {
                                     onKeyDown={(e) => {
                                         if (e.key === "Enter") sendChatMessage();
                                     }}
-                                    onFocus={()=> socket.emit("typing_event", { to: selectedUser, from: userName, isTyping: true, ts: Date.now() })}
+                                    onFocus={()=> socket.emit("typingEvent", { to: selectedUser, from: userName, isTyping: true, ts: Date.now() })}
+                                    onBlur={()=> socket.emit("typingEvent", { to: selectedUser, from: userName, isTyping: false, ts: Date.now() })}
                                 />
                                 <button onClick={sendChatMessage} className="px-4 py-2 bg-blue-500 text-white rounded">
                                     Send
