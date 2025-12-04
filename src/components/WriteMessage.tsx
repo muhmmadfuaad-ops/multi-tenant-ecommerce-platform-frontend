@@ -42,21 +42,14 @@ function WriteMessage() {
     const messagesRef = useRef(messages);
     messagesRef.current = messages;
 
-    // current logged-in user
-    // const cachedUser = getUserName;
-    // const userName = cachedUser && cachedUser.trim().length ? cachedUser : "anonymous";
-
     // UI: selected chat partner shown on right
     const [selectedUser, setSelectedUser] = useState<string | null>(null);
     const [chatInput, setChatInput] = useState(""); // per-chat input
 
-    // all users
     const [users, setUsers] = useState<string[]>(getUsers());
 
     // Ensure socket connect once and handle incoming messages
     useEffect(() => {
-        // console.log('cachedUser:', cachedUser)
-        // console.log('typeof cachedUser:', typeof cachedUser)
         console.log('socket.connected:', socket.connected);
 
         if (!socket.connected && userName) {
