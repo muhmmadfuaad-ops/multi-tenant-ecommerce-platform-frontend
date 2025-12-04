@@ -141,6 +141,7 @@ function WriteMessage() {
     // Persist whenever messages changes (safety in addition to immediate persist on receive)
     useEffect(() => {
         persistChats(messages);
+        console.log('messages:', messages)
     }, [messages]);
 
     // derive chat members (unique users excluding yourself)
@@ -191,9 +192,16 @@ function WriteMessage() {
         setChatInput("");
     };
 
+    const clearLocalData = () => {
+        setMessages([]);
+        setUserName(null);
+    }
+
     const handleLogOut = () => {
         socket.disconnect();
         clearAll();
+        clearLocalData();
+        setIsLoggedIn(false);
     }
 
     // quick helper: open chat with user (also focus input in UI if you implement refs)
