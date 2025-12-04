@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { socket } from "../socket";
+import {storage} from "../utils/storage";
+
+const {getUserName, saveUserName, getUserId, saveUserId, getUsers, saveUsers, getChats, saveChats, clearAll} = storage;
 
 type ChatMsg = { to: string; from: string; message: string; ts?: number };
 type TypingEvent = { to: string; from: string; isTyping: boolean; ts?: number };
 
 function safeParseChats(key = "chats"): ChatMsg[] {
     try {
-        const raw = localStorage.getItem(key);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
+        const chats: ChatMsg[] = getChats();
+        // console.log('chats:', chats)
+
+        if (!chats) return [];
+        if (Array.isArray(chats)) return chats;
         return [];
     } catch {
         return [];
@@ -18,15 +22,15 @@ function safeParseChats(key = "chats"): ChatMsg[] {
 
 function persistChats(messages: ChatMsg[], key = "chats") {
     try {
-        localStorage.setItem(key, JSON.stringify(messages));
+        saveChats(messages)
     } catch (e) {
         console.warn("Could not persist chats:", e);
     }
 }
 
 function WriteMessage() {
-    const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("userName"));
-    const [userName, setUserName] = useState(localStorage.getItem("userName") || null);
+    const [isLoggedIn, setIsLoggedIn] = useState(!!getUserName);
+    const [userName, setUserName] = useState(getUserName || null);
     const [mainRecipient, setMainRecipient] = useState("");
     const [mainMessage, setMainMessage] = useState("");
 
@@ -39,7 +43,7 @@ function WriteMessage() {
     messagesRef.current = messages;
 
     // current logged-in user
-    // const cachedUser = localStorage.getItem("userName");
+    // const cachedUser = getUserName;
     // const userName = cachedUser && cachedUser.trim().length ? cachedUser : "anonymous";
 
     // UI: selected chat partner shown on right
@@ -47,12 +51,13 @@ function WriteMessage() {
     const [chatInput, setChatInput] = useState(""); // per-chat input
 
     // all users
-    const [users, setUsers] = useState<string[]>(localStorage.getItem("users") ? JSON.parse(localStorage.getItem("users") as string) : []);
-    const userId = localStorage.getItem("userId") || null;
+    const [users, setUsers] = useState<string[]>(getUsers());
+
     // Ensure socket connect once and handle incoming messages
     useEffect(() => {
         // console.log('cachedUser:', cachedUser)
         // console.log('typeof cachedUser:', typeof cachedUser)
+        console.log('socket.connected:', socket.connected);
 
         if (!socket.connected && userName) {
             console.log('socket.connect() triggered')
@@ -62,14 +67,13 @@ function WriteMessage() {
         const onConnect = () => {
             console.log(`${userName} connected with socket id: ${socket.id}`);
             if (socket.id) {
-                localStorage.setItem("userId", socket.id);
+                saveUserId(socket.id);
             }
             console.log('Emitting registerUser with userName:', userName);
             socket.emit("registerUser", userName);
         };
 
         const onDisconnect = () => {
-            localStorage.clear();
             setIsLoggedIn(false);
             setUserName(null);
         };
@@ -189,6 +193,7 @@ function WriteMessage() {
 
     const handleLogOut = () => {
         socket.disconnect();
+        clearAll();
     }
 
     // quick helper: open chat with user (also focus input in UI if you implement refs)
@@ -209,7 +214,7 @@ function WriteMessage() {
     useEffect(() => {
         console.log('typeof users:', typeof users)
         console.log('users in useEffect:', users)
-        localStorage.setItem("users", JSON.stringify(users));
+        if (socket.connected) saveUsers(users);
     }, [users]);
 
     return (
