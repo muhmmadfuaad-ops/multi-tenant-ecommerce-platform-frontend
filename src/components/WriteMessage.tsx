@@ -112,8 +112,8 @@ function WriteMessage() {
 
         // when new user disconnects
         const onUserDisconnected = (data: {userData: string}) => {
-            console.log('data in onUserConnected:', data)
-            console.log('users in onUserConnected:', users)
+            console.log('data in onUserDisconnected:', data)
+            console.log('users in onUserDisconnected:', users)
             setUsers(prev => prev.filter(u => u !== data.userData));
         }
 
@@ -230,189 +230,207 @@ function WriteMessage() {
         setShowDropdown(false);
     };
 
+    const handleSubmit = (userName: string) => {
+        if (!userName) return;
+        socket.auth = { userName };
+        socket.connect();
+        saveUserName(userName);
+        setIsLoggedIn(true);
+    }
+
     useEffect(() => {
         console.log('typeof users:', typeof users)
         console.log('users in useEffect:', users)
         if (socket.connected) saveUsers(users);
     }, [users]);
 
+    useEffect(() => {
+        console.log('isLoggedIn:', isLoggedIn)
+    }, [isLoggedIn]);
+
     return (
         <div className="p-4" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
             {/* Top-level inputs remain (user asked to keep them) */}
-            <div className="mb-4">
-                <div>
-
-                    {/*<ul>*/}
-                    {/*    {users.map((u) =>*/}
-                    {/*        {*/}
-                    {/*            return (<li>(u)</li>)*/}
-                    {/*        }*/}
-                    {/*    }*/}
-                    {/*</ul>*/}
-
-                    {isLoggedIn &&
-                        <div>
-                            <h2 className="text-2xl font-semibold">Username: {userName}</h2>
-                            <ul>
-                                <h3>All Users</h3>
-                                {users.map((u, index) => (
-                                    <li key={index}>{u}</li>
-                                ))}
-                            </ul>
-                            <button onClick={handleLogOut} className="px-4 py-2 bg-blue-500 text-white rounded">
-                                Log Out
-                            </button>
-                        </div>
-                    }
-
-                </div>
-                <div className="flex gap-2 mt-2">
+            {!isLoggedIn ?
+                <div className="flex items-center gap-4">
+                    <label>Please type your username</label>
                     <input
-                        value={mainRecipient}
-                        onChange={(e) => {
-                            setMainRecipient(e.target.value);
-                            setShowDropdown(true); // open dropdown when typing
-                        }}
-                        // onFocus={() => setShowDropdown(true)}
-                        placeholder="Recipient username (top-level)"
-                        className="px-3 py-2 border rounded flex-1"
+                        type="text"
+                        value={userName}
+                        onChange={(e) => setUserName(e.target.value)}
+                        placeholder="Type your username"
                     />
-                    {showDropdown && mainRecipient && filteredUsers.length > 0 && (
-                        <ul className="absolute left-0 right-0 bg-white border rounded mt-1 shadow z-10">
-                            {filteredUsers.map((user) => (
-                                <li
-                                    key={user}
-                                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                                    onClick={() => handleSelect(user)}
-                                >
-                                    {user}
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                    <input
-                        value={mainMessage}
-                        onChange={(e) => setMainMessage(e.target.value)}
-                        placeholder="Type message (top-level)"
-                        className="px-3 py-2 border rounded flex-2"
-                    />
-                    <button onClick={sendMainMessage} className="px-4 py-2 bg-blue-500 text-white rounded">
-                        Send
+
+                    <button onClick={()=> handleSubmit(userName ?? "")}>
+                        Submit
                     </button>
                 </div>
-                <p className="text-sm text-gray-500 mt-2">You can also use the chat panel on the right to message someone directly.</p>
-            </div>
-
-            {/* Main chat layout: left members, right conversation */}
-            <div className="flex h-[60vh] border rounded overflow-hidden">
-                {/* Left: chat members */}
-                <aside className="w-64 border-r p-2 bg-gray-50 overflow-auto">
-                    <h3 className="font-medium mb-2 text-black">Chats</h3>
-                    {chatMembers.length === 0 ? (
-                        <p className="text-sm text-gray-500">No chats yet. Send a message to start.</p>
-                    ) : (
-                        <ul>
-                            {chatMembers.map((member) => {
-                                // show unread count or last message preview if wanted; minimal here
-                                console.log('messages:', messages)
-                                const lastMsg = [...messages].reverse()[0];
-                                return (
-                                    <li
-                                        key={member}
-                                        onClick={() => openChat(member)}
-                                        className={`p-2 rounded cursor-pointer mb-1 ${selectedUser === member ? "bg-blue-100" : "hover:bg-gray-100"}`}
-                                    >
-                                        <div className="flex justify-between">
-                                            <strong>{member}</strong>{typingMembers.has(member) && <span className="text-red-900">typing...</span>}
-                                            <span className="text-xs text-gray-500">{lastMsg ? new Date(lastMsg.ts ?? 0).toLocaleTimeString() : ""}</span>
-                                        </div>
-                                        <div className="text-sm text-gray-600 truncate">
-                                            {lastMsg ? `${lastMsg.from === userName ? "You: " : ""}${lastMsg.message}` : ""}
-                                        </div>
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    )}
-                    {/*<div className="mt-4">*/}
-                    {/*    <h4 className="text-sm font-medium">Start chat</h4>*/}
-                    {/*    <div className="flex gap-1 mt-2">*/}
-                    {/*        <input*/}
-                    {/*            placeholder="username"*/}
-                    {/*            value={mainRecipient}*/}
-                    {/*            onChange={(e) => setMainRecipient(e.target.value)}*/}
-                    {/*            className="px-2 py-1 border rounded flex-1 text-sm"*/}
-                    {/*        />*/}
-                    {/*        <button*/}
-                    {/*            onClick={() => {*/}
-                    {/*                if (mainRecipient) setSelectedUser(mainRecipient);*/}
-                    {/*            }}*/}
-                    {/*            className="px-2 py-1 bg-green-500 text-white rounded text-sm"*/}
-                    {/*        >*/}
-                    {/*            Open*/}
-                    {/*        </button>*/}
-                    {/*    </div>*/}
-                    {/*</div>*/}
-                </aside>
-
-                {/* Right: conversation panel */}
-                <main className="flex-1 p-4 flex flex-col">
-                    {!selectedUser ? (
-                        <div className="flex-1 flex items-center justify-center text-gray-500">Select a chat on the left to view conversation</div>
-                    ) : (
-                        <>
-                            <div className="mb-3 flex items-center justify-between">
-                                <h3 className="text-lg font-semibold">Chat with {selectedUser}</h3>
-                                <div className="text-sm text-gray-500">{conversation.length} messages</div>
-                            </div>
-
-                            <div className="flex-1 overflow-auto p-2 border rounded bg-white" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                {conversation.length === 0 ? (
-                                    <div className="text-sm text-gray-500">No messages in this chat yet.</div>
-                                ) : (
-                                    conversation.map((m, i) => {
-                                        const isMine = m.from === userName;
-
-                                        return (
-                                            <div key={m.ts ?? i} style={{ display: "flex", justifyContent: isMine ? "flex-end" : "flex-start" }}>
-                                                <div
-                                                    className={`p-2 rounded-lg max-w-[70%] ${isMine ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-900"}`}
-                                                >
-                                                    <div style={{ marginTop: 4 }}>{!isMine ? <strong>{m.from}</strong> : <strong>You</strong>}: {m.message}</div>
-                                                    <div style={{ fontSize: 11, marginTop: 6, opacity: 0.7, textAlign: "right" }}>
-                                                        {new Date(m.ts ?? 0).toLocaleString()}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })
-                                )}
-                                {typingMembers.has(selectedUser) && <span className="font-bold text-black">Typing...</span>}
-
-                            </div>
-
-                            {/* per-chat input */}
-                            <div className="mt-3 flex gap-2 items-center">
+                :
+                <>
+                    <div className="mb-4">
+                        <div>
+                                <div>
+                                    <h2 className="text-2xl font-semibold">Username: {userName}</h2>
+                                    <ul>
+                                        <h3>All Users</h3>
+                                        {users.map((u, index) => (
+                                            <li key={index}>{u}</li>
+                                        ))}
+                                    </ul>
+                                    <button onClick={handleLogOut} className="px-4 py-2 bg-blue-500 text-white rounded">
+                                        Log Out
+                                    </button>
+                                </div>
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                            <div>
                                 <input
-                                    value={chatInput}
-                                    onChange={(e) => setChatInput(e.target.value)}
-                                    placeholder={`Message ${selectedUser}`}
-                                    className="flex-1 px-3 py-2 border rounded"
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") sendChatMessage();
+                                    value={mainRecipient}
+                                    onChange={(e) => {
+                                        setMainRecipient(e.target.value);
+                                        setShowDropdown(true); // open dropdown when typing
                                     }}
-                                    onFocus={()=> socket.emit("typingEvent", { to: selectedUser, from: userName, isTyping: true, ts: Date.now() })}
-                                    onBlur={()=> socket.emit("typingEvent", { to: selectedUser, from: userName, isTyping: false, ts: Date.now() })}
+                                    // onFocus={() => setShowDropdown(true)}
+                                    placeholder="Recipient username"
+                                    className="px-3 py-2 border rounded flex-1"
                                 />
-                                <button onClick={sendChatMessage} className="px-4 py-2 bg-blue-500 text-white rounded">
-                                    Send
-                                </button>
+                                {showDropdown && mainRecipient && filteredUsers.length > 0 && (
+                                    <ul className="bg-white text-black">
+                                        {filteredUsers.map((user) => (
+                                            <li
+                                                key={user}
+                                                className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                                                onClick={() => handleSelect(user)}
+                                            >
+                                                {user}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
                             </div>
-                        </>
-                    )}
-                </main>
-            </div>
+                            <input
+                                value={mainMessage}
+                                onChange={(e) => setMainMessage(e.target.value)}
+                                placeholder="Type message (top-level)"
+                                className="px-3 py-2 border rounded flex-2"
+                            />
+                            <button onClick={sendMainMessage} className="px-4 py-2 bg-blue-500 text-white rounded">
+                                Send
+                            </button>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-2">You can also use the chat panel on the right to message someone directly.</p>
+                    </div>
 
+                    <div className="flex h-[60vh] border rounded overflow-hidden">
+                        {/* Left: chat members */}
+                        <aside className="w-64 border-r p-2 bg-gray-50 overflow-auto">
+                            <h3 className="font-medium mb-2 text-black">Chats</h3>
+                            {chatMembers.length === 0 ? (
+                                <p className="text-sm text-gray-500">No chats yet. Send a message to start.</p>
+                            ) : (
+                                <ul>
+                                    {chatMembers.map((member) => {
+                                        // show unread count or last message preview if wanted; minimal here
+                                        console.log('messages:', messages)
+                                        const lastMsg = [...messages].reverse()[0];
+                                        return (
+                                            <li
+                                                key={member}
+                                                onClick={() => openChat(member)}
+                                                className={`p-2 rounded cursor-pointer mb-1 ${selectedUser === member ? "bg-gray-500" : "bg-gray-500"}`}
+                                            >
+                                                <div className="flex justify-between">
+                                                    <strong>{member}</strong>{typingMembers.has(member) && <span className="text-red-900">typing...</span>}
+                                                    <span className="text-xs text-gray-500">{lastMsg ? new Date(lastMsg.ts ?? 0).toLocaleTimeString() : ""}</span>
+                                                </div>
+                                                <div className="text-sm text-gray-600 truncate">
+                                                    {lastMsg ? `${lastMsg.from === userName ? "You: " : ""}${lastMsg.message}` : ""}
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
+                            {/*<div className="mt-4">*/}
+                            {/*    <h4 className="text-sm font-medium">Start chat</h4>*/}
+                            {/*    <div className="flex gap-1 mt-2">*/}
+                            {/*        <input*/}
+                            {/*            placeholder="username"*/}
+                            {/*            value={mainRecipient}*/}
+                            {/*            onChange={(e) => setMainRecipient(e.target.value)}*/}
+                            {/*            className="px-2 py-1 border rounded flex-1 text-sm"*/}
+                            {/*        />*/}
+                            {/*        <button*/}
+                            {/*            onClick={() => {*/}
+                            {/*                if (mainRecipient) setSelectedUser(mainRecipient);*/}
+                            {/*            }}*/}
+                            {/*            className="px-2 py-1 bg-green-500 text-white rounded text-sm"*/}
+                            {/*        >*/}
+                            {/*            Open*/}
+                            {/*        </button>*/}
+                            {/*    </div>*/}
+                            {/*</div>*/}
+                        </aside>
+
+                        {/* Right: conversation panel */}
+                        <main className="flex-1 p-4 flex flex-col">
+                            {!selectedUser ? (
+                                <div className="flex-1 flex items-center justify-center text-gray-500">Select a chat on the left to view conversation</div>
+                            ) : (
+                                <>
+                                    <div className="mb-3 flex items-center justify-between">
+                                        <h3 className="text-lg font-semibold">Chat with {selectedUser}</h3>
+                                        <div className="text-sm text-gray-500">{conversation.length} messages</div>
+                                    </div>
+
+                                    <div className="flex-1 overflow-auto p-2 border rounded bg-white" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                        {conversation.length === 0 ? (
+                                            <div className="text-sm text-gray-500">No messages in this chat yet.</div>
+                                        ) : (
+                                            conversation.map((m, i) => {
+                                                const isMine = m.from === userName;
+
+                                                return (
+                                                    <div key={m.ts ?? i} style={{ display: "flex", justifyContent: isMine ? "flex-end" : "flex-start" }}>
+                                                        <div
+                                                            className={`p-2 rounded-lg max-w-[70%] ${isMine ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-900"}`}
+                                                        >
+                                                            <div style={{ marginTop: 4 }}>{!isMine ? <strong>{m.from}</strong> : <strong>You</strong>}: {m.message}</div>
+                                                            <div style={{ fontSize: 11, marginTop: 6, opacity: 0.7, textAlign: "right" }}>
+                                                                {new Date(m.ts ?? 0).toLocaleString()}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                        {typingMembers.has(selectedUser) && <span className="font-bold text-black">Typing...</span>}
+
+                                    </div>
+
+                                    {/* per-chat input */}
+                                    <div className="mt-3 flex gap-2 items-center">
+                                        <input
+                                            value={chatInput}
+                                            onChange={(e) => setChatInput(e.target.value)}
+                                            placeholder={`Message ${selectedUser}`}
+                                            className="flex-1 px-3 py-2 border rounded"
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter") sendChatMessage();
+                                            }}
+                                            onFocus={()=> socket.emit("typingEvent", { to: selectedUser, from: userName, isTyping: true, ts: Date.now() })}
+                                            onBlur={()=> socket.emit("typingEvent", { to: selectedUser, from: userName, isTyping: false, ts: Date.now() })}
+                                        />
+                                        <button onClick={sendChatMessage} className="px-4 py-2 bg-blue-500 text-white rounded">
+                                            Send
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </main>
+                    </div>
+                </>
+            }
             {/* Optional debug: show raw messages */}
             {/* <pre style={{ marginTop: 8 }}>{JSON.stringify(messages, null, 2)}</pre> */}
         </div>
